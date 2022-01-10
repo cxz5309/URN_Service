@@ -36,31 +36,13 @@ const connect = async () => {
 
 exports.handler = async (event, context, callback) => {
   try {
-    const User = mongoose.model('user', UserSchema);
     context.callbackWaitsForEmptyEventLoop = false;
-
     const operation = event.httpMethod ? event.httpMethod : event.context['http-method'];
-
-    const data = event['body-json'] ? event['body-json'] : JSON.parse(event.body);
-    const randKey = data['RandomKey'];
-    // const sessionKey = data['SessionKey'];
-    const {
-      service,
-      region,
-      account,
-      resource
-    } = data['ARN-INPUT'];
-
-    const secretKey = process.env.SECRET_KEY;
-    var sessKey = crypto.createHmac('sha256', secretKey).update(randKey).digest('base64');
-
-    // if(sessionKey !== sessKey){
-    //    throw new Error('session key is not valid')
-    // }
 
     await connect().then(() => {
       console.log('mongo connect');
     });
+    const User = mongoose.model('user', UserSchema);
 
     switch (operation) {
       case 'GET':
@@ -76,6 +58,23 @@ exports.handler = async (event, context, callback) => {
         });
         break;
       case 'POST':
+        const data = event['body-json'] ? event['body-json'] : JSON.parse(event.body);
+        const randKey = data['RandomKey'];
+        // const sessionKey = data['SessionKey'];
+        const {
+          service,
+          region,
+          account,
+          resource
+        } = data['ARN-INPUT'];
+
+        const secretKey = process.env.SECRET_KEY;
+        var sessKey = crypto.createHmac('sha256', secretKey).update(randKey).digest('base64');
+
+        // if(sessionKey !== sessKey){
+        //    throw new Error('session key is not valid')
+        // }
+
         let user = await User.findOne({
           service,
           region,
