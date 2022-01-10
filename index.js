@@ -27,12 +27,9 @@ exports.handler = async (event, context, callback) => {
         const User = mongoose.model('user', UserSchema);
         context.callbackWaitsForEmptyEventLoop = false;
 
-        const operation = event.httpMethod;
-        
-        console.log('event', event);
-        console.log('event.body', event.body);
-        const data = JSON.parse(event.body);
-        console.log('data', data);
+        const operation = event.httpMethod ? event.httpMethod : event.context['http-method'];
+
+        const data = event['body-json'] ? event['body-json'] : JSON.parse(event.body);
         const randKey = data['RandomKey'];
         // const sessionKey = data['SessionKey'];
         const {service, region, account, resource} = data['ARN-INPUT'];
@@ -51,13 +48,11 @@ exports.handler = async (event, context, callback) => {
         switch (operation) {
             case 'GET':
                 const users = await User.find({});
-                connect().then(() =>{
-                    console.log('connect and get users');
-                });
 
                 callback(null, {
                     'statusCode':200,
-                    'body':JSON.stringify({
+                    'headers': {},
+                    'body': JSON.stringify({
                         'message':'get all users', 
                         users})
                 });
@@ -70,7 +65,6 @@ exports.handler = async (event, context, callback) => {
                     resource
                 });
                 if(!user){
-                    console.log('!user')
                     user = new User({
                         service,
                         region,
@@ -79,7 +73,7 @@ exports.handler = async (event, context, callback) => {
                     });
                     await user.save();
                 }
-                const key = crypto.scryptSync(sessKey, 'salt', 32);
+                const key = crypto.scryptSync(sessKey, process.env.SALT, 32);
                 const iv = crypto.randomBytes(16)          
                 const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
 
@@ -88,7 +82,8 @@ exports.handler = async (event, context, callback) => {
 
                 callback(null, {
                     'statusCode':200,
-                    'body':JSON.stringify({
+                    'headers': {},
+                    'body': JSON.stringify({
                         'message':'post user', 
                         'ARN-OUTPUT':{
                             'resource-id': resourceId
@@ -97,14 +92,15 @@ exports.handler = async (event, context, callback) => {
                 break;
         }
     }catch(err){
+        console.log(err);
         callback(null, {
             'statusCode': 400,
+            'headers': {},
             'body': JSON.stringify({
                 'message': err.message, 
                 'ARN-OUTPUT':{
                     'resource-id': 'NULL'
-                }
-            })
+                }})
         });
     }
 }
