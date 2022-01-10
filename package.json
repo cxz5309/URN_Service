@@ -1,0 +1,25 @@
+{
+  "name": "URN_Service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cxz5309/aws-lambda-tutorial.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cxz5309/aws-lambda-tutorial/issues"
+  },
+  "homepage": "https://github.com/cxz5309/aws-lambda-tutorial#readme",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "mongodb": "^4.3.0",
+    "mongoose": "^6.1.5"
+  }
+}
