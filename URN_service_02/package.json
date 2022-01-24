@@ -1,5 +1,5 @@
 {
-  "name": "URN_service_02",
+  "name": "urn_service_02",
   "version": "1.0.0",
   "description": "URN Service using AWS Lambda",
   "main": "index.js",
@@ -11,6 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.1062.0",
-    "moment": "^2.29.1"
+    "countries-and-timezones": "^3.3.0",
+    "crypto": "^1.0.1",
+    "moment": "^2.29.1",
+    "moment-timezone": "^0.5.34"
   }
 }
