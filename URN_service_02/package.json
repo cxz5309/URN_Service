@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.1062.0",
     "countries-and-timezones": "^3.3.0",
     "crypto": "^1.0.1",
     "moment": "^2.29.1",

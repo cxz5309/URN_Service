@@ -1,10 +1,6 @@
-const AWS = require('aws-sdk');
 const crypto = require('crypto');
-
-const { categoryFormater, dateFormater, fillZero, getMoment } = require('./util');
-const { params } = require('./dynamo');
-
-const dynamo = new AWS.DynamoDB.DocumentClient();
+const { categoryFormater, fillZero, getMoment } = require('./util');
+const { initData, userData } = require('./datastore');
 
 const TIME_PREVENT = 500;
 
@@ -19,17 +15,16 @@ exports.handler = async (event, context) => {
 
   try {
     const eventBody = JSON.parse(event.body);
-    const eventHeader = JSON.parse(event.headers);
 
-    const { provider, region, account, service, type } = eventBody['URN-INPUT'];
+    const { provider, region, account, category, type } = eventBody['URN-INPUT'];
 
-    const sessionKey = eventHeader['sessionKey'];
-    const randKey = [provider, region, account, service, type].join('|')
-    const secretKey = 'secret';//process.env.SECRET_KEY;
-    const table = 'urn_service_02';
+    const sessionKey = eventBody['sessionKey'];
+    const randKey = [provider, region, account, category, type].join('|')
+    const secretKey = process.env.SECRET_KEY;//'secret';
+    const service = `${category}-${type}`
 
     //make new Category
-    const newCategory = categoryFormater(service);
+    const newCategory = categoryFormater(category);
     //make new Date
     const { timestamp, newDate } = getMoment(region);
 
@@ -38,47 +33,60 @@ exports.handler = async (event, context) => {
     if (verify !== sessionKey) {
       throw new Error('session key is not invalid');
     }
-    if (!account || !service || !region) {
+    if (!account || !region || !category || !type) {
       throw new Error('URN_INPUT is required')
     }
-    const readParams = params.readParams(newDate);
-    const onScan = (err, data) => {
-      if (err) {
-        console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
-      } else {
-        console.log("Scan succeeded.");
-        // continue scanning if we have more movies, because
-        // scan can retrieve a maximum of 1MB of data
-        if (typeof data.LastEvaluatedKey != "undefined") {
-          console.log("Scanning for more...");
-          readParams.ExclusiveStartKey = data.LastEvaluatedKey;
-          dynamo.scan(readParams, onScan);
-        }
-        else {
-          console.log("Scanning fin");
-        }
-      }
-    }
     
-    //find today db
-    const dynamoTodayItems = await dynamo.scan(readParams, onScan).promise();
-    const { Items, Count } = dynamoTodayItems;
-    console.log('todayitems', dynamoTodayItems);
-
-    if (Number(Items.timestamp) > Number(timestamp) - TIME_PREVENT) {
-      throw new Error(`try again after ${TIME_PREVENT} ms.`)
+    //키 값을 포함하여 데이터가 하나도 없을 경우 임시 객체를 추가하여 키를 생성한다.
+    const keys = Object.keys(userData.service);
+    if (!keys.includes(service)) {
+      userData.service[service] = initData(category, type);
     }
+    //find service datas
+    const items = Object.entries(userData.service)
+      .filter((v) => {
+        return service === v[0];      
+      })
+      .flat()
+      .map((v) => {
+        return v[1];
+      })
+    console.log('items', items);
+    
     //make new Num
-    const newNum = fillZero(Count + 1);
+    const newNum = fillZero(items.length + 1);
 
     //create urn
     const resource_id = `${newCategory}-${newDate}${newNum}`;
     const newUrn = `URN:${provider}:${region}:${account}:${service}-${type}:${resource_id}`;
 
+    //prevent replay attack
+    //이전 타임스탬프와 비교하여 너무 빠른 요청은 거절한다.
+    //+이미 등록된 id면 타임스탬프만 변경한다.
+    let itemIndex = -1;
+    for (let i = 0; i < count;i++) {
+      if (items[i].resource_id === resource_id) {
+        itemIndex = i;
+        if (Number(items[i].timestamp) > Number(timestamp) - TIME_PREVENT) {
+          throw new Error(`try again after ${TIME_PREVENT} ms.`)
+        }
+        items[i].timestamp = timestamp;
+      }
+    }
     switch (event.httpMethod) {
       case 'POST':        
-        writeParams = params.writeParams(table, newDate, resource_id, provider, region, account, service, type, timestamp);
-        const dynamoInput = await dynamo.put(writeParams).promise();
+        if (itemIndex < 0) {
+          items.push({
+            resource_id,
+            date: newDate,
+            provider,
+            region,
+            account,
+            category,
+            type,
+            timestamp
+          })
+        }
         body = {
           'URN-OUTPUT': { 'urn': newUrn }
         };
